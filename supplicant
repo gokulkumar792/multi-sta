@@ -1,0 +1,160 @@
+#!/bin/sh
+
+usage()
+{
+	echo ""
+	echo "USAGE: $0 [ARGS]"
+	echo ""
+	echo "Control the wpa_supplicant running on multiple wireless VDEVs"
+	echo ""
+	echo "-o [string]		operation on wpa_supplicant (start, stop, restart, cli)"
+	echo "-i [number or range]	vdev number or range of numbers (0-2048)"
+	echo "-p [file path]		wpa_supplicant conf file path"
+	echo "-c [string]		wpa_cli command"
+	echo "-h			show this message"
+	echo ""
+	echo "Examples:"
+	echo ""
+	echo "Start wpa_supplicant on vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file"
+	echo "$ ./supplicant -o start -i 1-10 -p /etc/wpa_supplicant.conf"
+	echo ""
+	echo "Stop the wpa_supplicant running on vdev wlan1"
+	echo "$ ./supplicant -o stop -i 1"
+	echo ""
+	echo "Restart the wpa_supplicant running on vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file"
+	echo "$ ./supplicant -o restart -i 3-5 -p /etc/wpa_supplicant.conf"
+	echo ""
+	echo "Run the wpa_cli command \"status\" on vdev wlan2"
+	echo "$ ./supplicant -o cli -i 2 -c status"
+	echo ""
+}
+
+supplicant_cli()
+{	if [ -z "$2" ]; then
+		echo "wpa_cli command missing !"
+		return 1
+	fi
+
+	/root/wpa_cli -i $1 $2
+}
+
+get_supplicant_status()
+{	status=$(supplicant_cli $1 status)
+	if [ $? -ne 0 ]; then
+		return 1
+	fi
+
+	for var in ${@:2}; do
+		case $var in
+		wpa_state)	wpa_state=$(echo "$status" | grep -w "$var" | cut -d '=' -f2)
+				;;
+		ssid)		ssid=$(echo "$status" | grep -w "$var" | cut -d '=' -f2)
+				;;
+		bssid)		bssid=$(echo "$status" | grep -w "$var" | cut -d '=' -f2)
+				;;
+		esac
+	done
+}
+
+supplicant_start()
+{	echo -n "$1 : "
+	/root/wpa_supplicant -D nl80211 -i $1 -c $wpa_supplicant_conf -B
+	if [ $? -ne 0 ]; then
+		return 1
+	fi
+
+	get_supplicant_status $1 wpa_state
+	if [ $? -ne 0 ]; then
+		return 1
+	fi
+
+	while [ "$wpa_state" != "COMPLETED" ]; do
+		sleep 1
+		get_supplicant_status $1 wpa_state ssid bssid
+	done
+	echo -e "Connected to ssid \"$ssid\" $bssid\n"
+}
+
+supplicant_stop()
+{	supplicant_cli $1 terminate
+
+	if [ $? -eq 0 ]; then
+		echo -e "killed wpa_supplicant on vdev $i\n"
+	else	return 1
+	fi
+}
+
+if [ $# -eq 0 ]; then
+	usage
+	exit
+fi
+
+while getopts "o:i:p:c:h" OPT; do
+	case $OPT in
+	o)	operation="$OPTARG"
+		;;
+
+	i)	iface_begin=$(echo "$OPTARG" | cut -d '-' -f1)
+		iface_end=$(echo "$OPTARG" | cut -d '-' -f2)
+
+		if ! [ "$iface_begin" -le "$iface_end" ]; then
+			echo "Select a valid vdev number or range !"
+			usage
+			exit
+		fi
+		;;
+
+	p)	wpa_supplicant_conf="$OPTARG"
+		;;
+
+	c)	cli_cmd="$OPTARG"
+		;;
+
+	h | *)	usage
+		exit
+		;;
+	esac
+done
+
+if [ -z "$iface_begin" ] || [ -z "$iface_end" ]; then
+	echo "The vdev number or range is missing !"
+	usage
+	exit
+fi
+
+if [ "$operation" == "start" ] || [ "$operation" == "restart" ]; then
+	if [ -z "$wpa_supplicant_conf" ]; then
+		echo "wpa_supplicant conf file path missing !"
+		usage
+		exit
+	fi
+fi
+
+for i in $(seq $iface_begin $iface_end); do
+	iface="wlan$i"
+
+	case $operation in
+		start)	supplicant_start $iface
+			;;
+
+		stop)	supplicant_stop $iface
+			;;
+
+		restart)
+			supplicant_stop $iface
+			supplicant_start $iface
+			;;
+
+		cli)	supplicant_cli $iface $cli_cmd
+			if [ $? -ne 0 ]; then
+				usage
+				exit
+			fi
+			;;
+
+		*)	echo "Select a valid operation !"
+			usage
+			exit
+			;;
+	esac
+done

@@ -1,0 +1,102 @@
+#!/bin/sh
+
+oui='aa:bb:cc'
+
+usage()
+{
+	echo ""
+	echo "USAGE: $0 [ARGS]"
+	echo ""
+	echo "Control multiple wireless VDEVs"
+	echo ""
+	echo "-o [string]		operation on wireless vdev (add, del, up, down)"
+	echo "-i [number or range]	vdev number or range of numbers (0-2048)"
+	echo "-h			show this message"
+	echo ""
+	echo "Example:"
+	echo ""
+	echo "Create new wireless vdevs from wlan1 to wlan10"
+	echo "$ ./iface -o add -i 1-10"
+	echo ""
+	echo "Delete the wireless vdev wlan2"
+	echo "$ ./iface -o del -i 2"
+	echo ""
+	echo "Bring down the wireless vdevs from wlan3 to wlan5"
+	echo "$ ./iface -o down -i 3-5"
+	echo ""
+	echo "Bring up the wireless vdev wlan3"
+	echo "$ ./iface -o up -i 3"
+	echo ""
+}
+
+if [ "$#" -eq 0 ]; then
+	usage
+	exit
+fi
+
+while getopts "o:i:h" OPT; do
+	case $OPT in
+	o)	operation="$OPTARG"
+		;;
+
+	i)	iface_begin=$(echo "$OPTARG" | cut -d '-' -f1)
+		iface_end=$(echo "$OPTARG" | cut -d '-' -f2)
+		if ! [ "$iface_begin" -le "$iface_end" ]; then
+			echo "Select a valid vdev number or range !"
+			usage
+			exit
+		fi
+		;;
+
+	h | *)	usage
+		exit
+		;;
+	esac
+done
+
+if [ -z "$iface_begin" ] || [ -z "$iface_end" ]; then
+	echo "The vdev number or range is missing !"
+	usage
+	exit
+fi
+
+for i in $(seq $iface_begin $iface_end); do
+	iface="wlan$i"
+	mac=$oui:$(printf %0.6x "$i" | sed -e 's/../&:/g' -e 's/:$//')
+
+	case $operation in
+		add)	iw phy phy0 interface add $iface type managed addr $mac
+			if [ $? -eq 0 ]; then
+				echo "created a vdev $iface $mac"
+			else	exit
+			fi
+			;;
+
+		del)	ip link set $iface down
+			iw dev $iface del
+			if [ $? -eq 0 ]; then
+				echo "deleted the vdev $iface"
+			else	exit
+			fi
+			;;
+
+		up)	ip link set $iface up
+			if [ $? -eq 0 ]; then
+				echo "brought up vdev $iface"
+			else	exit
+			fi
+			;;
+
+		down)	ip link set $iface down
+			if [ $? -eq 0 ]; then
+				echo "brought down vdev $iface"
+			else	exit
+			fi
+			;;
+
+		*)	echo "Select a valid operation !"
+			usage
+			exit
+			;;
+	esac
+done
