@@ -65,8 +65,9 @@ for i in $(seq $iface_begin $iface_end); do
 	mac=$oui:$(printf %0.6x "$i" | sed -e 's/../&:/g' -e 's/:$//')
 
 	case $operation in
-		add)	iw phy phy0 interface add $iface type managed addr $mac
+		add)	iw phy phy0 interface add $iface type managed
 			if [ $? -eq 0 ]; then
+				ip link set $iface address $mac
 				echo "created a vdev $iface $mac"
 			else	exit
 			fi
