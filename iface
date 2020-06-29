@@ -10,22 +10,27 @@ usage()
 	echo "Control multiple wireless VDEVs"
 	echo ""
 	echo "-o [string]		operation on wireless vdev (add, del, up, down)"
+	echo "-O [string]		OUI to be used while selecting a MAC addr for the new vdev (optional)"
+	echo "-p [number]		pdev number"
 	echo "-i [number or range]	vdev number or range of numbers (0-2048)"
 	echo "-h			show this message"
 	echo ""
 	echo "Example:"
 	echo ""
-	echo "Create new wireless vdevs from wlan1 to wlan10"
-	echo "$ ./iface -o add -i 1-10"
+	echo "Create new wireless vdevs from phy0-wlan1 to phy0-wlan10"
+	echo "$ ./iface -o add -p 0 -i 1-10"
 	echo ""
-	echo "Delete the wireless vdev wlan2"
-	echo "$ ./iface -o del -i 2"
+	echo "Create new wireless vdev phy0-wlan20 with OUI aa:aa:aa"
+	echo "$ ./iface -o add -O aa:aa:aa -p 0 -i 20"
 	echo ""
-	echo "Bring down the wireless vdevs from wlan3 to wlan5"
-	echo "$ ./iface -o down -i 3-5"
+	echo "Delete the wireless vdev phy0-wlan2"
+	echo "$ ./iface -o del -p 0 -i 2"
 	echo ""
-	echo "Bring up the wireless vdev wlan3"
-	echo "$ ./iface -o up -i 3"
+	echo "Bring down the wireless vdevs from phy0-wlan3 to phy0-wlan5"
+	echo "$ ./iface -o down -p 0 -i 3-5"
+	echo ""
+	echo "Bring up the wireless vdev phy0-wlan3"
+	echo "$ ./iface -o up -p 0 -i 3"
 	echo ""
 }
 
@@ -34,9 +39,15 @@ if [ "$#" -eq 0 ]; then
 	exit
 fi
 
-while getopts "o:i:h" OPT; do
+while getopts "o:O:p:i:h" OPT; do
 	case $OPT in
 	o)	operation="$OPTARG"
+		;;
+
+	O)	oui="$OPTARG"
+		;;
+
+	p)	pdev="$OPTARG"
 		;;
 
 	i)	iface_begin=$(echo "$OPTARG" | cut -d '-' -f1)
@@ -54,6 +65,11 @@ while getopts "o:i:h" OPT; do
 	esac
 done
 
+if [ -z "$pdev" ]; then
+	echo "The pdev number is missing !"
+	usage
+	exit
+fi
 if [ -z "$iface_begin" ] || [ -z "$iface_end" ]; then
 	echo "The vdev number or range is missing !"
 	usage
@@ -61,11 +77,12 @@ if [ -z "$iface_begin" ] || [ -z "$iface_end" ]; then
 fi
 
 for i in $(seq $iface_begin $iface_end); do
-	iface="wlan$i"
+	phy_radio="phy$pdev"
+	iface="phy$pdev-wlan$i"
 	mac=$oui:$(printf %0.6x "$i" | sed -e 's/../&:/g' -e 's/:$//')
 
 	case $operation in
-		add)	iw phy phy0 interface add $iface type managed
+		add)	iw phy $phy_radio interface add $iface type managed
 			if [ $? -eq 0 ]; then
 				ip link set $iface address $mac
 				echo "created a vdev $iface $mac"

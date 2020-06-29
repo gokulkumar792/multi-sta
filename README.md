@@ -1,8 +1,12 @@
 # multi-sta
-POSIX shell scripts to simultaneously control multiple wireless STAs created with ath9k driver
+POSIX shell scripts to simultaneously control multiple wireless STAs created with ath9k (or) mac80211_hwsim driver
 
 ## Notes:
+
+For ath9k:
 - Enable software crypto by setting the module param `nohwcrypt=1` while loading the ath9k driver. Only then the newly created VDEVs would be able to decrypt the packets if connected to a secured network.
+
+For both ath9k & mac80211_hwsim:
 - List of dependencies for the scripts
     - wpa_supplicant
     - wpa_cli
@@ -13,27 +17,33 @@ POSIX shell scripts to simultaneously control multiple wireless STAs created wit
 ```
 USAGE: iface [ARGS]
 -o [string]             operation on wireless vdev (add, del, up, down)
+-O [string]             OUI to be used while selecting a MAC addr for the new vdev (optional)
+-p [number]             pdev number
 -i [number or range]    vdev number or range of numbers (0-2048)
 -h                      show this message
 ```
 
 ### Example:
 
-Create new wireless vdevs from wlan1 to wlan10
+Create new wireless vdevs from phy0-wlan1 to phy0-wlan10
 ```
-$ ./iface -o add -i 1-10
+$ ./iface -o add -p 0 -i 1-10
 ```
-Delete the wireless vdev wlan2
+Create new wireless vdev phy0-wlan20 with OUI aa:aa:aa
 ```
-$ ./iface -o del -i 2
+$ ./iface -o add -O aa:aa:aa -p 0 -i 20"
 ```
-Bring down the wireless vdevs from wlan3 to wlan5
+Delete the wireless vdev phy0-wlan2
 ```
-$ ./iface -o down -i 3-5
+$ ./iface -o del -p 0 -i 2
 ```
-Bring up the wireless vdev wlan3
+Bring down the wireless vdevs from phy0-wlan3 to phy0-wlan5
 ```
-$ ./iface -o up -i 3
+$ ./iface -o down -p 0 -i 3-5
+```
+Bring up the wireless vdev phy0-wlan3
+```
+$ ./iface -o up -p 0 -i 3
 ```
 
 ## 2) supplicant - Control the wpa_supplicant running on multiple wireless VDEVs
@@ -41,27 +51,28 @@ $ ./iface -o up -i 3
 ```
 USAGE: supplicant [ARGS]
 -o [string]             operation on wpa_supplicant (start, stop, restart, cli)
+-p [number]             pdev number
 -i [number or range]    vdev number or range of numbers (0-2048)
--p [file path]          wpa_supplicant conf file path
--c [string]             wpa_cli command
+-c [file path]          wpa_supplicant conf file path
+-C [string]             wpa_cli command
 -h                      show this message
 ```
 
 ### Examples:
 
-Start wpa_supplicant on vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file
+Start wpa_supplicant on vdevs from phy0-wlan1 to phy0-wlan10 with /etc/wpa_supplicant.conf file
 ```
-$ ./supplicant -o start -i 1-10 -p /etc/wpa_supplicant.conf
+$ ./supplicant -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf
 ```
-Stop the wpa_supplicant running on vdev wlan1
+Stop the wpa_supplicant running on vdev phy0-wlan1
 ```
-$ ./supplicant -o stop -i 1
+$ ./supplicant -o stop -p 0 -i 1
 ```
-Restart the wpa_supplicant running on vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file
+Restart the wpa_supplicant running on vdevs from phy0-wlan3 to phy0-wlan5 with /etc/wpa_supplicant.conf file
 ```
-$ ./supplicant -o restart -i 3-5 -p /etc/wpa_supplicant.conf
+$ ./supplicant -o restart -p 0 -i 3-5 -c /etc/wpa_supplicant.conf
 ```
-Run the wpa_cli command "status" on vdev wlan2
+Run the wpa_cli command "status" on vdev phy0-wlan2
 ```
-$ ./supplicant -o cli -i 2 -c status
+$ ./supplicant -o cli -p 0 -i 2 -C status
 ```

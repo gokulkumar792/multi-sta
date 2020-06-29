@@ -1,5 +1,7 @@
 #!/bin/sh
 
+bin_path="/usr/sbin"
+
 usage()
 {
 	echo ""
@@ -8,24 +10,25 @@ usage()
 	echo "Control the wpa_supplicant running on multiple wireless VDEVs"
 	echo ""
 	echo "-o [string]		operation on wpa_supplicant (start, stop, restart, cli)"
+	echo "-p [number]		pdev number"
 	echo "-i [number or range]	vdev number or range of numbers (0-2048)"
-	echo "-p [file path]		wpa_supplicant conf file path"
-	echo "-c [string]		wpa_cli command"
+	echo "-c [file path]		wpa_supplicant conf file path"
+	echo "-C [string]		wpa_cli command"
 	echo "-h			show this message"
 	echo ""
 	echo "Examples:"
 	echo ""
 	echo "Start wpa_supplicant on vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file"
-	echo "$ ./supplicant -o start -i 1-10 -p /etc/wpa_supplicant.conf"
+	echo "$ ./supplicant -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf"
 	echo ""
 	echo "Stop the wpa_supplicant running on vdev wlan1"
-	echo "$ ./supplicant -o stop -i 1"
+	echo "$ ./supplicant -o stop -p 0 -i 1"
 	echo ""
 	echo "Restart the wpa_supplicant running on vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file"
-	echo "$ ./supplicant -o restart -i 3-5 -p /etc/wpa_supplicant.conf"
+	echo "$ ./supplicant -o restart -p 0 -i 3-5 -c /etc/wpa_supplicant.conf"
 	echo ""
 	echo "Run the wpa_cli command \"status\" on vdev wlan2"
-	echo "$ ./supplicant -o cli -i 2 -c status"
+	echo "$ ./supplicant -o cli -p 0 -i 2 -C status"
 	echo ""
 }
 
@@ -35,7 +38,7 @@ supplicant_cli()
 		return 1
 	fi
 
-	/root/wpa_cli -i $1 $2
+	$bin_path/wpa_cli -i $1 $2
 }
 
 get_supplicant_status()
@@ -58,7 +61,7 @@ get_supplicant_status()
 
 supplicant_start()
 {	echo -n "$1 : "
-	/root/wpa_supplicant -D nl80211 -i $1 -c $wpa_supplicant_conf -B
+	$bin_path/wpa_supplicant -D nl80211 -i $1 -c $wpa_supplicant_conf -B
 	if [ $? -ne 0 ]; then
 		return 1
 	fi
@@ -89,9 +92,12 @@ if [ $# -eq 0 ]; then
 	exit
 fi
 
-while getopts "o:i:p:c:h" OPT; do
+while getopts "o:p:i:c:C:h" OPT; do
 	case $OPT in
 	o)	operation="$OPTARG"
+		;;
+
+	p)	pdev="$OPTARG"
 		;;
 
 	i)	iface_begin=$(echo "$OPTARG" | cut -d '-' -f1)
@@ -104,10 +110,10 @@ while getopts "o:i:p:c:h" OPT; do
 		fi
 		;;
 
-	p)	wpa_supplicant_conf="$OPTARG"
+	c)	wpa_supplicant_conf="$OPTARG"
 		;;
 
-	c)	cli_cmd="$OPTARG"
+	C)	cli_cmd="$OPTARG"
 		;;
 
 	h | *)	usage
@@ -116,6 +122,11 @@ while getopts "o:i:p:c:h" OPT; do
 	esac
 done
 
+if [ -z "$pdev" ]; then
+	echo "The pdev number is missing !"
+	usage
+	exit
+fi
 if [ -z "$iface_begin" ] || [ -z "$iface_end" ]; then
 	echo "The vdev number or range is missing !"
 	usage
@@ -131,7 +142,8 @@ if [ "$operation" == "start" ] || [ "$operation" == "restart" ]; then
 fi
 
 for i in $(seq $iface_begin $iface_end); do
-	iface="wlan$i"
+	phy_radio="phy$pdev"
+	iface="phy$pdev-wlan$i"
 
 	case $operation in
 		start)	supplicant_start $iface
