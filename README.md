@@ -31,7 +31,7 @@ $ ./iface -o add -p 0 -i 1-10
 ```
 Create new wireless vdev phy0-wlan20 with OUI aa:aa:aa
 ```
-$ ./iface -o add -O aa:aa:aa -p 0 -i 20"
+$ ./iface -o add -O aa:aa:aa -p 0 -i 20
 ```
 Delete the wireless vdev phy0-wlan2
 ```
