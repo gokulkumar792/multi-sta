@@ -2,6 +2,12 @@
 
 bin_path="/usr/sbin"
 
+# script's mode of operation (default)
+mode="global"
+
+# wpa_supplicant global control socket (default)
+global_ctrl_interface="/tmp/global"
+
 usage()
 {
 	echo ""
@@ -10,6 +16,8 @@ usage()
 	echo "Control the wpa_supplicant running on multiple wireless VDEVs"
 	echo ""
 	echo "-o [string]		operation on wpa_supplicant (start, stop, restart, cli)"
+	echo "-n			force normal mode (creates separate wpa_supplicant instances for every vdev)"
+	echo "-g [string]		global control interface path (specific to the default global mode) (optional)"
 	echo "-p [number]		pdev number"
 	echo "-i [number or range]	vdev number or range of numbers (0-2048)"
 	echo "-c [file path]		wpa_supplicant conf file path"
@@ -18,31 +26,56 @@ usage()
 	echo ""
 	echo "Examples:"
 	echo ""
-	echo "Start wpa_supplicant on vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file"
+	echo "Use the global wpa_supplicant (/tmp/global) to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file"
 	echo "$ ./supplicant -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf"
 	echo ""
-	echo "Stop the wpa_supplicant running on vdev wlan1"
-	echo "$ ./supplicant -o stop -p 0 -i 1"
+	echo "Run commands while specifying the global wpa_supplicant ctrl interface path (expected default path is /tmp/global)"
+	echo "$ ./supplicant -g /root/global -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf"
 	echo ""
-	echo "Restart the wpa_supplicant running on vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file"
+	echo "Create individual wpa_supplicant instances to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file"
+	echo "$ ./supplicant -n -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf"
+	echo ""
+	echo "Stop the wpa_supplicant instance running on vdev wlan1"
+	echo "$ ./supplicant -n -o stop -p 0 -i 1"
+	echo ""
+	echo "Use the global wpa_supplicant to restart the STA vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file"
 	echo "$ ./supplicant -o restart -p 0 -i 3-5 -c /etc/wpa_supplicant.conf"
 	echo ""
 	echo "Run the wpa_cli command \"status\" on vdev wlan2"
 	echo "$ ./supplicant -o cli -p 0 -i 2 -C status"
 	echo ""
+	echo "Run the wpa_cli command \"get_network 0 ssid\" on vdev wlan2"
+	echo "$ ./supplicant -o cli -p 0 -i 2 -C \"get network 0 ssid\""
+	echo ""
 }
 
 supplicant_cli()
-{	if [ -z "$2" ]; then
-		echo "wpa_cli command missing !"
+{
+	if [ -z "$1" ]; then
+		echo "wpa_cli arguments missing !"
 		return 1
 	fi
 
-	$bin_path/wpa_cli -i $1 $2
+	if [ $mode == "normal" ]; then
+		ifname=$1; shift
+		$bin_path/wpa_cli -i $ifname $@
+
+	elif [ $mode == "global" ]; then
+		$bin_path/wpa_cli -g $global_ctrl_interface $@
+	fi
 }
 
 get_supplicant_status()
-{	status=$(supplicant_cli $1 status)
+{
+	ifname=$1
+
+	if [ $mode == "normal" ]; then
+		status=$(supplicant_cli $ifname status)
+
+	elif [ $mode == "global" ]; then
+		status=$(supplicant_cli ifname=$ifname status)
+	fi
+
 	if [ $? -ne 0 ]; then
 		return 1
 	fi
@@ -59,27 +92,103 @@ get_supplicant_status()
 	done
 }
 
+get_value_of_key()
+{
+	awk -F "$1=" 'NF > 1 {print $2}' $wpa_supplicant_conf
+}
+
 supplicant_start()
-{	echo -n "$1 : "
-	$bin_path/wpa_supplicant -D nl80211 -i $1 -c $wpa_supplicant_conf -B
+{
+	ifname=$1
+
+	if [ $mode == "normal" ]; then
+		echo -n "$ifname : "
+		$bin_path/wpa_supplicant -D nl80211 -i $ifname -c $wpa_supplicant_conf -B
+
+	elif [ $mode == "global" ]; then
+		ctrl_interface=$(get_value_of_key "ctrl_interface")
+		if [ ! -d $ctrl_interface ]; then
+			mkdir $ctrl_interface
+		fi
+
+		echo -n "INTERFACE_ADD $ifname $ctrl_interface - "
+		supplicant_cli interface_add $ifname $ctrl_interface
+
+		echo -n "$ifname: ADD_NETWORK - "
+		network_id=$(supplicant_cli ifname=$ifname add_network)
+		echo "$network_id"
+
+		ssid=$(get_value_of_key "ssid")
+		if [ -n "$ssid" ]; then
+			echo -n "$ifname: SET_NETWORK ssid $ssid - "
+			supplicant_cli ifname=$ifname set_network $network_id ssid $ssid
+		fi
+
+		bssid=$(get_value_of_key "bssid")
+		if [ -n "$bssid" ]; then
+			echo -n "$ifname: SET_NETWORK bssid $bssid - "
+			supplicant_cli ifname=$ifname set_network $network_id bssid $bssid
+		fi
+
+		frequency=$(get_value_of_key "frequency")
+		if [ -n "$frequency" ]; then
+			echo -n "$ifname: SET_NETWORK frequency $frequency - "
+			supplicant_cli ifname=$ifname set_network $network_id frequency $frequency
+		fi
+
+		key_mgmt=$(get_value_of_key "key_mgmt")
+		if [ -n "$key_mgmt" ]; then
+			echo -n "$ifname: SET_NETWORK key_mgmt $key_mgmt - "
+			supplicant_cli ifname=$ifname set_network $network_id key_mgmt $key_mgmt
+		fi
+
+		psk=$(get_value_of_key "psk")
+		if [ -n "$psk" ]; then
+			echo -n "$ifname: PSK: $psk - "
+			supplicant_cli ifname=$ifname set_network $network_id psk $psk
+		fi
+
+		sleep 1
+
+		echo -n "$ifname: ENABLE_NETWORK 0 - "
+		supplicant_cli ifname=$ifname enable_network $network_id
+	fi
+
 	if [ $? -ne 0 ]; then
 		return 1
 	fi
 
-	get_supplicant_status $1 wpa_state
+	get_supplicant_status $ifname wpa_state
 	if [ $? -ne 0 ]; then
 		return 1
 	fi
 
 	while [ "$wpa_state" != "COMPLETED" ]; do
 		sleep 1
-		get_supplicant_status $1 wpa_state ssid bssid
+		get_supplicant_status $ifname wpa_state ssid bssid
+		echo -n "."
 	done
-	echo -e "Connected to ssid \"$ssid\" $bssid\n"
+	echo -e "Connected to the bssid $bssid \"$ssid\"\n"
 }
 
 supplicant_stop()
-{	supplicant_cli $1 terminate
+{
+	ifname=$1
+
+	if [ $mode == "normal" ]; then
+		echo -n "$ifname: terminate wpa_supplicant - "
+		supplicant_cli $ifname terminate
+
+	elif [ $mode == "global" ]; then
+		network_id=$(supplicant_cli ifname=$ifname list_networks | grep "CURRENT" | \
+			     awk -F " " '{print $1}')
+
+		echo -n "$ifname: REMOVE_NETWORK $network_id - "
+		supplicant_cli ifname=$ifname remove_network $network_id
+
+		echo -n "INTERFACE REMOVE - "
+		supplicant_cli interface_remove $ifname
+	fi
 
 	if [ $? -eq 0 ]; then
 		echo -e "killed wpa_supplicant on vdev $i\n"
@@ -92,9 +201,15 @@ if [ $# -eq 0 ]; then
 	exit
 fi
 
-while getopts "o:p:i:c:C:h" OPT; do
+while getopts "o:ng:p:i:c:C:h" OPT; do
 	case $OPT in
 	o)	operation="$OPTARG"
+		;;
+
+	n)	mode="normal"
+		;;
+
+	g)	global_ctrl_interface="$OPTARG"
 		;;
 
 	p)	pdev="$OPTARG"
@@ -127,6 +242,7 @@ if [ -z "$pdev" ]; then
 	usage
 	exit
 fi
+
 if [ -z "$iface_begin" ] || [ -z "$iface_end" ]; then
 	echo "The vdev number or range is missing !"
 	usage
@@ -137,6 +253,20 @@ if [ "$operation" == "start" ] || [ "$operation" == "restart" ]; then
 	if [ -z "$wpa_supplicant_conf" ]; then
 		echo "wpa_supplicant conf file path missing !"
 		usage
+		exit
+	fi
+fi
+
+if [ $mode == "global" ]; then
+	echo -n "global wpa_supplicant PING - "
+	response=$(supplicant_cli ping | grep -o PONG)
+	echo -e "$response\n"
+
+	if [ "$response" != "PONG" ]; then
+		echo "global wpa_supplicant is either not running or ctrl interface ($global_ctrl_interface) is wrong."
+		echo "To start global wpa_supplicant, run the following command"
+		echo "		$ wpa_supplicant -g /tmp/global -B"
+		echo ""
 		exit
 	fi
 fi
@@ -157,9 +287,16 @@ for i in $(seq $iface_begin $iface_end); do
 			supplicant_start $iface
 			;;
 
-		cli)	supplicant_cli $iface $cli_cmd
+		cli)	if [ $mode == "normal" ]; then
+				supplicant_cli $iface $cli_cmd
+
+			elif [ $mode == "global" ]; then
+				supplicant_cli ifname=$iface $cli_cmd
+			fi
+
+			echo ""
+
 			if [ $? -ne 0 ]; then
-				usage
 				exit
 			fi
 			;;

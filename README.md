@@ -46,11 +46,13 @@ Bring up the wireless vdev phy0-wlan3
 $ ./iface -o up -p 0 -i 3
 ```
 
-## 2) supplicant - Control the wpa_supplicant running on multiple wireless VDEVs
+## 2) supplicant - Control the wpa_supplicant(s) which is/are managing the multiple wireless VDEVs
 
 ```
 USAGE: supplicant [ARGS]
 -o [string]             operation on wpa_supplicant (start, stop, restart, cli)
+-n			force normal mode (creates separate wpa_supplicant instances for every vdev)
+-g [string]		global control interface path (specific to the default global mode) (optional)
 -p [number]             pdev number
 -i [number or range]    vdev number or range of numbers (0-2048)
 -c [file path]          wpa_supplicant conf file path
@@ -60,19 +62,37 @@ USAGE: supplicant [ARGS]
 
 ### Examples:
 
-Start wpa_supplicant on vdevs from phy0-wlan1 to phy0-wlan10 with /etc/wpa_supplicant.conf file
+Use the global wpa_supplicant (/tmp/global) to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file
 ```
 $ ./supplicant -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf
 ```
-Stop the wpa_supplicant running on vdev phy0-wlan1
+
+Run commands while specifying the global wpa_supplicant ctrl interface path (expected default path is /tmp/global)
 ```
-$ ./supplicant -o stop -p 0 -i 1
+$ ./supplicant -g /root/global -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf
 ```
-Restart the wpa_supplicant running on vdevs from phy0-wlan3 to phy0-wlan5 with /etc/wpa_supplicant.conf file
+
+Create individual wpa_supplicant instances to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file
+```
+$ ./supplicant -n -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf
+```
+
+Stop the wpa_supplicant instance running on vdev wlan1
+```
+$ ./supplicant -n -o stop -p 0 -i 1
+```
+
+Use the global wpa_supplicant to restart the STA vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file
 ```
 $ ./supplicant -o restart -p 0 -i 3-5 -c /etc/wpa_supplicant.conf
 ```
-Run the wpa_cli command "status" on vdev phy0-wlan2
+
+Run the wpa_cli command \"status\" on vdev wlan2
 ```
 $ ./supplicant -o cli -p 0 -i 2 -C status
+```
+
+Run the wpa_cli command \"get_network 0 ssid\" on vdev wlan2
+```
+$ ./supplicant -o cli -p 0 -i 2 -C "get network 0 ssid"
 ```
