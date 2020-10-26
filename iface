@@ -17,19 +17,19 @@ usage()
 	echo ""
 	echo "Example:"
 	echo ""
-	echo "Create new wireless vdevs from phy0-wlan1 to phy0-wlan10"
+	echo "Create new wireless vdevs from phy0-sta1 to phy0-sta10"
 	echo "$ ./iface -o add -p 0 -i 1-10"
 	echo ""
-	echo "Create new wireless vdev phy0-wlan20 with OUI aa:aa:aa"
+	echo "Create new wireless vdev phy0-sta20 with OUI aa:aa:aa"
 	echo "$ ./iface -o add -O aa:aa:aa -p 0 -i 20"
 	echo ""
-	echo "Delete the wireless vdev phy0-wlan2"
+	echo "Delete the wireless vdev phy0-sta2"
 	echo "$ ./iface -o del -p 0 -i 2"
 	echo ""
-	echo "Bring down the wireless vdevs from phy0-wlan3 to phy0-wlan5"
+	echo "Bring down the wireless vdevs from phy0-sta3 to phy0-sta5"
 	echo "$ ./iface -o down -p 0 -i 3-5"
 	echo ""
-	echo "Bring up the wireless vdev phy0-wlan3"
+	echo "Bring up the wireless vdev phy0-sta3"
 	echo "$ ./iface -o up -p 0 -i 3"
 	echo ""
 }
@@ -78,7 +78,7 @@ fi
 
 for i in $(seq $iface_begin $iface_end); do
 	phy_radio="phy$pdev"
-	iface="phy$pdev-wlan$i"
+	iface="phy$pdev-sta$i"
 	mac=$oui:$(printf %0.6x "$i" | sed -e 's/../&:/g' -e 's/:$//')
 
 	case $operation in

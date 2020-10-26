@@ -25,23 +25,23 @@ USAGE: iface [ARGS]
 
 ### Example:
 
-Create new wireless vdevs from phy0-wlan1 to phy0-wlan10
+Create new wireless vdevs from phy0-sta1 to phy0-sta10
 ```
 $ ./iface -o add -p 0 -i 1-10
 ```
-Create new wireless vdev phy0-wlan20 with OUI aa:aa:aa
+Create new wireless vdev phy0-sta20 with OUI aa:aa:aa
 ```
 $ ./iface -o add -O aa:aa:aa -p 0 -i 20
 ```
-Delete the wireless vdev phy0-wlan2
+Delete the wireless vdev phy0-sta2
 ```
 $ ./iface -o del -p 0 -i 2
 ```
-Bring down the wireless vdevs from phy0-wlan3 to phy0-wlan5
+Bring down the wireless vdevs from phy0-sta3 to phy0-sta5
 ```
 $ ./iface -o down -p 0 -i 3-5
 ```
-Bring up the wireless vdev phy0-wlan3
+Bring up the wireless vdev phy0-sta3
 ```
 $ ./iface -o up -p 0 -i 3
 ```
@@ -62,7 +62,7 @@ USAGE: supplicant [ARGS]
 
 ### Examples:
 
-Use the global wpa_supplicant (/tmp/global) to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file
+Use the global wpa_supplicant (/tmp/global) to start STA mode operation in vdevs from sta1 to sta10 with /etc/wpa_supplicant.conf file
 ```
 $ ./supplicant -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf
 ```
@@ -72,27 +72,27 @@ Run commands while specifying the global wpa_supplicant ctrl interface path (exp
 $ ./supplicant -g /root/global -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf
 ```
 
-Create individual wpa_supplicant instances to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file
+Create individual wpa_supplicant instances to start STA mode operation in vdevs from sta1 to sta10 with /etc/wpa_supplicant.conf file
 ```
 $ ./supplicant -n -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf
 ```
 
-Stop the wpa_supplicant instance running on vdev wlan1
+Stop the wpa_supplicant instance running on vdev sta1
 ```
 $ ./supplicant -n -o stop -p 0 -i 1
 ```
 
-Use the global wpa_supplicant to restart the STA vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file
+Use the global wpa_supplicant to restart the STA vdevs from sta3 to sta5 with /etc/wpa_supplicant.conf file
 ```
 $ ./supplicant -o restart -p 0 -i 3-5 -c /etc/wpa_supplicant.conf
 ```
 
-Run the wpa_cli command \"status\" on vdev wlan2
+Run the wpa_cli command \"status\" on vdev sta2
 ```
 $ ./supplicant -o cli -p 0 -i 2 -C status
 ```
 
-Run the wpa_cli command \"get_network 0 ssid\" on vdev wlan2
+Run the wpa_cli command \"get_network 0 ssid\" on vdev sta2
 ```
 $ ./supplicant -o cli -p 0 -i 2 -C "get network 0 ssid"
 ```

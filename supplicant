@@ -26,25 +26,25 @@ usage()
 	echo ""
 	echo "Examples:"
 	echo ""
-	echo "Use the global wpa_supplicant (/tmp/global) to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file"
+	echo "Use the global wpa_supplicant (/tmp/global) to start STA mode operation in vdevs from sta1 to stan10 with /etc/wpa_supplicant.conf file"
 	echo "$ ./supplicant -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf"
 	echo ""
 	echo "Run commands while specifying the global wpa_supplicant ctrl interface path (expected default path is /tmp/global)"
 	echo "$ ./supplicant -g /root/global -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf"
 	echo ""
-	echo "Create individual wpa_supplicant instances to start STA mode operation in vdevs from wlan1 to wlan10 with /etc/wpa_supplicant.conf file"
+	echo "Create individual wpa_supplicant instances to start STA mode operation in vdevs from sta1 to sta10 with /etc/wpa_supplicant.conf file"
 	echo "$ ./supplicant -n -o start -p 0 -i 1-10 -c /etc/wpa_supplicant.conf"
 	echo ""
-	echo "Stop the wpa_supplicant instance running on vdev wlan1"
+	echo "Stop the wpa_supplicant instance running on vdev sta1"
 	echo "$ ./supplicant -n -o stop -p 0 -i 1"
 	echo ""
-	echo "Use the global wpa_supplicant to restart the STA vdevs from wlan3 to wlan5 with /etc/wpa_supplicant.conf file"
+	echo "Use the global wpa_supplicant to restart the STA vdevs from sta3 to sta5 with /etc/wpa_supplicant.conf file"
 	echo "$ ./supplicant -o restart -p 0 -i 3-5 -c /etc/wpa_supplicant.conf"
 	echo ""
-	echo "Run the wpa_cli command \"status\" on vdev wlan2"
+	echo "Run the wpa_cli command \"status\" on vdev sta2"
 	echo "$ ./supplicant -o cli -p 0 -i 2 -C status"
 	echo ""
-	echo "Run the wpa_cli command \"get_network 0 ssid\" on vdev wlan2"
+	echo "Run the wpa_cli command \"get_network 0 ssid\" on vdev sta2"
 	echo "$ ./supplicant -o cli -p 0 -i 2 -C \"get network 0 ssid\""
 	echo ""
 }
@@ -273,7 +273,7 @@ fi
 
 for i in $(seq $iface_begin $iface_end); do
 	phy_radio="phy$pdev"
-	iface="phy$pdev-wlan$i"
+	iface="phy$pdev-sta$i"
 
 	case $operation in
 		start)	supplicant_start $iface
