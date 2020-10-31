@@ -163,12 +163,22 @@ supplicant_start()
 		return 1
 	fi
 
-	while [ "$wpa_state" != "COMPLETED" ]; do
-		sleep 1
-		get_supplicant_status $ifname wpa_state ssid bssid
-		echo -n "."
+	ct=0
+	wait_count=5
+	while [ 1 ]; do
+		if [ "$wpa_state" == "COMPLETED" ]; then
+			echo -e "Connected to the bssid $bssid \"$ssid\"\n"
+			break;
+		elif [ $ct -ge $wait_count ]; then
+			echo -e "Connection timeout\n"
+			break;
+		else
+			sleep 1
+			ct=$(($ct+1))
+			get_supplicant_status $ifname wpa_state ssid bssid
+			echo -n "."
+		fi
 	done
-	echo -e "Connected to the bssid $bssid \"$ssid\"\n"
 }
 
 supplicant_stop()
