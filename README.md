@@ -96,3 +96,7 @@ Run the wpa_cli command \"get_network 0 ssid\" on vdev sta2
 ```
 $ ./supplicant -o cli -p 0 -i 2 -C "get network 0 ssid"
 ```
+
+## License & copyright
+
+multi-sta is made available under the [MIT License](LICENSE)
